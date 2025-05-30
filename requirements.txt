@@ -1,0 +1,32 @@
+# Core dependencies
+requests>=2.31.0
+paho-mqtt>=2.1.0
+flask>=3.0.0
+flask-socketio>=5.3.6
+flask-cors>=4.0.0
+python-dotenv>=1.0.0
+
+# Web dashboard dependencies
+flask-sqlalchemy>=3.1.1
+flask-migrate>=4.0.5
+flask-wtf>=1.2.1
+flask-login>=0.6.3
+flask-bcrypt>=1.0.1
+flask-mail>=0.9.1
+
+# Security and cryptography
+cryptography>=42.0.0
+pyOpenSSL>=24.0.0
+certifi>=2024.2.2
+
+# Testing and development
+pytest>=8.0.0
+pytest-cov>=4.1.0
+black>=24.1.1
+flake8>=7.0.0
+
+# Utilities
+python-dateutil>=2.8.2
+pytz>=2024.1
+tqdm>=4.66.1
+colorama>=0.4.6 

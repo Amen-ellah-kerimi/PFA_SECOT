@@ -1,0 +1,31 @@
+# ACL file for Mosquitto
+# Basic security configuration with 4-digit PINs
+
+# Smart light device (PIN: 4321)
+user smart_light
+topic readwrite home/smartlight/state
+topic readwrite home/smartlight/command
+topic readwrite home/smartlight/brightness
+topic readwrite home/smartlight/color
+topic readwrite home/smartlight/ambient
+topic readwrite home/smartlight/motion
+topic readwrite home/smartlight/status
+
+# Web dashboard (PIN: 8765)
+user web_dashboard
+topic read home/smartlight/#
+topic write home/smartlight/commands
+
+# Android app (PIN: 2109)
+user android_app
+topic read home/smartlight/state
+topic read home/smartlight/brightness
+topic read home/smartlight/color
+topic read home/smartlight/ambient
+topic read home/smartlight/motion
+topic read home/smartlight/status
+topic write home/smartlight/command
+
+# Admin (PIN: 0000)
+user admin
+topic readwrite # 

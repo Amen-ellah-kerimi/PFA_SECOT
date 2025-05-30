@@ -1,0 +1,5 @@
+Flask==2.3.3
+Flask-Cors==4.0.0
+paho-mqtt==2.2.1
+gunicorn==21.2.0
+python-dotenv==1.0.0

@@ -1,0 +1,25 @@
+# ACL file for Mosquitto
+# Secure configuration with strong passwords
+
+# Weather station device (Password: WeatherStation2024!)
+user weather_station
+topic readwrite home/weatherstation/temperature
+topic readwrite home/weatherstation/humidity
+topic readwrite home/weatherstation/status
+topic readwrite home/weatherstation/data
+
+# Web dashboard (Password: WebDashboard2024!)
+user web_dashboard
+topic read home/weatherstation/#
+topic write home/weatherstation/commands
+
+# Android app (Password: AndroidApp2024!)
+user android_app
+topic read home/weatherstation/temperature
+topic read home/weatherstation/humidity
+topic read home/weatherstation/status
+topic read home/weatherstation/data
+
+# Admin (Password: Admin2024!)
+user admin
+topic readwrite # 

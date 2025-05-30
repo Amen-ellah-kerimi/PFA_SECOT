@@ -1,0 +1,5 @@
+# ACL file for Mosquitto
+# No security configuration - allows all access
+
+# Allow all access to all topics
+topic readwrite # 

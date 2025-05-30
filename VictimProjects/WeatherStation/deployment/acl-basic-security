@@ -1,0 +1,25 @@
+# ACL file for Mosquitto
+# Basic security configuration with 4-digit PINs
+
+# Weather station device (PIN: 1234)
+user weather_station
+topic readwrite home/weatherstation/temperature
+topic readwrite home/weatherstation/humidity
+topic readwrite home/weatherstation/status
+topic readwrite home/weatherstation/data
+
+# Web dashboard (PIN: 5678)
+user web_dashboard
+topic read home/weatherstation/#
+topic write home/weatherstation/commands
+
+# Android app (PIN: 9012)
+user android_app
+topic read home/weatherstation/temperature
+topic read home/weatherstation/humidity
+topic read home/weatherstation/status
+topic read home/weatherstation/data
+
+# Admin (PIN: 0000)
+user admin
+topic readwrite # 

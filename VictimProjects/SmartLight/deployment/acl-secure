@@ -1,0 +1,31 @@
+# ACL file for Mosquitto
+# Secure configuration with strong passwords
+
+# Smart light device (Password: SmartLight2024!)
+user smart_light
+topic readwrite home/smartlight/state
+topic readwrite home/smartlight/command
+topic readwrite home/smartlight/brightness
+topic readwrite home/smartlight/color
+topic readwrite home/smartlight/ambient
+topic readwrite home/smartlight/motion
+topic readwrite home/smartlight/status
+
+# Web dashboard (Password: WebDashboard2024!)
+user web_dashboard
+topic read home/smartlight/#
+topic write home/smartlight/commands
+
+# Android app (Password: AndroidApp2024!)
+user android_app
+topic read home/smartlight/state
+topic read home/smartlight/brightness
+topic read home/smartlight/color
+topic read home/smartlight/ambient
+topic read home/smartlight/motion
+topic read home/smartlight/status
+topic write home/smartlight/command
+
+# Admin (Password: Admin2024!)
+user admin
+topic readwrite # 

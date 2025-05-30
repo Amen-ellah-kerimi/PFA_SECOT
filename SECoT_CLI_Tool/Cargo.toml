@@ -1,0 +1,40 @@
+[package]
+name = "SECoT_CLI_Tool"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# MQTT Communication
+rumqttc = "0.24"  # Async MQTT client (recommended over paho-mqtt for Rust)
+
+# Serial Port Communication
+serialport = "4.2"  # Serial port communication
+
+# CLI Parsing
+clap = { version = "4.0", features = ["derive"] }  # Modern CLI argument parsing
+
+# Async Runtime
+tokio = { version = "1.0", features = ["full"] }  # Async runtime
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }  # JSON serialization
+serde_json = "1.0"
+
+# Terminal UI/UX
+dialoguer = "0.10"  # For interactive prompts
+console = "0.15"  # Styling/colors in terminal
+indicatif = "0.17"  # Progress bars/spinners
+prettytable-rs = "0.10"  # For table output formatting
+
+# Error Handling
+anyhow = "1.0"  # Flexible error handling
+thiserror = "1.0"  # Custom error types
+
+# Utilities
+chrono = "0.4"  # Date/time handling
+log = "0.4"  # Logging facade
+env_logger = "0.10"  # Logging implementation
+regex = "1.11"  # Regular expressions
+uuid = { version = "1.4", features = ["v4"] }  # For generating unique IDs
+ipnetwork = "0.20"  # For IP network calculations
+futures = "0.3"  # For async/await utilities

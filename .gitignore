@@ -1,0 +1,23 @@
+# Ignore Node.js dependencies
+node_modules/
+
+# Ignore Python environment and build files
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/env/
+build/
+dist/
+
+# Ignore Rust build artifacts
+target/
+
+# Ignore OS specific files
+.DS_Store
+thumbs.db
+
+# Ignore credentials and sensitive files
+*.key
+*.crt
+*.conf
+passwd 

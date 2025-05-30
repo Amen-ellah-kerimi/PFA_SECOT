@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SECoT - Security Evaluation & Compromise Toolkit</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SECoT</h1>
+            <p>Security Evaluation & Compromise Toolkit</p>
+        </header>
+        
+        <nav>
+            <ul>
+                <li><a href="#" class="active" data-page="dashboard">Dashboard</a></li>
+                <li><a href="#" data-page="attacks">Attacks</a></li>
+                <li><a href="#" data-page="scan">Network Scan</a></li>
+                <li><a href="#" data-page="settings">Settings</a></li>
+                <li><a href="#" data-page="about">About</a></li>
+            </ul>
+        </nav>
+        
+        <main>
+            <!-- Dashboard Page -->
+            <section id="dashboard" class="page active">
+                <h2>Dashboard</h2>
+                <div class="status-cards">
+                    <div class="card">
+                        <h3>System Status</h3>
+                        <div class="status-item">
+                            <span>Uptime:</span>
+                            <span id="uptime">0s</span>
+                        </div>
+                        <div class="status-item">
+                            <span>Free Memory:</span>
+                            <span id="free-memory">0 bytes</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>WiFi Status</h3>
+                        <div class="status-item">
+                            <span>Mode:</span>
+                            <span id="wifi-mode">AP</span>
+                        </div>
+                        <div class="status-item">
+                            <span>SSID:</span>
+                            <span id="wifi-ssid">-</span>
+                        </div>
+                        <div class="status-item">
+                            <span>IP Address:</span>
+                            <span id="wifi-ip">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>Active Attacks</h3>
+                        <div id="active-attacks">
+                            <p>No active attacks</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>Scan Results</h3>
+                        <div class="status-item">
+                            <span>WiFi Networks:</span>
+                            <span id="wifi-networks">0</span>
+                        </div>
+                        <div class="status-item">
+                            <span>MQTT Brokers:</span>
+                            <span id="mqtt-brokers">0</span>
+                        </div>
+                        <div class="status-item">
+                            <span>BLE Devices:</span>
+                            <span id="ble-devices">0</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Attacks Page -->
+            <section id="attacks" class="page">
+                <h2>Attacks</h2>
+                <div class="attack-list">
+                    <div class="attack-selector">
+                        <select id="attack-type">
+                            <option value="" disabled selected>Select an attack</option>
+                            <!-- Attack options will be populated by JavaScript -->
+                        </select>
+                        <button id="attack-start" class="btn primary">Start</button>
+                        <button id="attack-stop" class="btn danger" disabled>Stop</button>
+                    </div>
+                    
+                    <div id="attack-params" class="attack-params">
+                        <p>Select an attack to configure parameters</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Network Scan Page -->
+            <section id="scan" class="page">
+                <h2>Network Scan</h2>
+                <div class="scan-controls">
+                    <div class="scan-selector">
+                        <select id="scan-type">
+                            <option value="0">WiFi Networks</option>
+                            <option value="1">MQTT Brokers</option>
+                            <option value="2">BLE Devices</option>
+                        </select>
+                        <button id="scan-start" class="btn primary">Start Scan</button>
+                    </div>
+                </div>
+                
+                <div class="scan-results">
+                    <h3>Results</h3>
+                    <div id="scan-results-container">
+                        <p>No scan results yet</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Settings Page -->
+            <section id="settings" class="page">
+                <h2>Settings</h2>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label for="ap-ssid">Access Point SSID</label>
+                        <input type="text" id="ap-ssid" value="SECoT_AP">
+                    </div>
+                    <div class="form-group">
+                        <label for="ap-password">Access Point Password</label>
+                        <input type="password" id="ap-password" value="securitytool">
+                    </div>
+                    <div class="form-group">
+                        <label for="ap-channel">Access Point Channel</label>
+                        <input type="number" id="ap-channel" min="1" max="14" value="1">
+                    </div>
+                    <button id="save-settings" class="btn primary">Save Settings</button>
+                </div>
+            </section>
+            
+            <!-- About Page -->
+            <section id="about" class="page">
+                <h2>About SECoT</h2>
+                <div class="about-content">
+                    <h3>Security Evaluation & Compromise Toolkit</h3>
+                    <p>SECoT is an ESP32-based security audit tool designed for educational purposes to demonstrate common vulnerabilities in IoT systems.</p>
+                    <p>This tool is inspired by tools like Flipper Zero, ESP32 Marauder, and ESP Ghost, but with a focus on IoT security testing and awareness.</p>
+                    <p><strong>Educational Purposes Only:</strong> This tool is designed for educational and authorized security testing only. Using it against systems without permission may be illegal and unethical.</p>
+                    <h3>Features</h3>
+                    <ul>
+                        <li>WiFi Attacks: Deauthentication, beacon flooding, probe request spamming</li>
+                        <li>MQTT Attacks: Broker scanning, message spoofing, fake device emulation</li>
+                        <li>Network Attacks: ARP spoofing, passive sniffing, evil twin</li>
+                        <li>Multiple Interfaces: Serial terminal, TFT screen, and web interface</li>
+                    </ul>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>SECoT v1.0.0 | Educational purposes only. Use responsibly.</p>
+        </footer>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

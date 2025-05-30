@@ -1,0 +1,16 @@
+{
+  "mqtt": {
+    "broker_host": "localhost",
+    "broker_port": 1883,
+    "client_id": "secot_cli_tool",
+    "username": null,
+    "password": null
+  },
+  "serial": {
+    "baud_rate": 115200,
+    "auto_connect": true
+  },
+  "output": {
+    "default_format": "table"
+  }
+}

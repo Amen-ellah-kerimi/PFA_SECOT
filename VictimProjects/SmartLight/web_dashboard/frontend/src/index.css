@@ -1,0 +1,105 @@
+:root {
+  --primary-color: #7e57c2;
+  --primary-light: #b085f5;
+  --primary-dark: #4d2c91;
+  --secondary-color: #ff9800;
+  --secondary-light: #ffc947;
+  --secondary-dark: #c66900;
+  --text-color: #212121;
+  --text-secondary: #757575;
+  --background-color: #f5f5f5;
+  --card-background: #ffffff;
+  --border-color: #e0e0e0;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --header-height: 64px;
+  --sidebar-width: 250px;
+  --card-border-radius: 8px;
+  --transition-speed: 0.3s;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Roboto', 'Arial', sans-serif;
+  line-height: 1.6;
+  color: var(--text-color);
+  background-color: var(--background-color);
+}
+
+a {
+  text-decoration: none;
+  color: var(--primary-color);
+}
+
+.chart-container {
+  position: relative;
+  height: 300px;
+  max-height: 300px;
+  overflow: hidden;
+}
+
+.color-preview {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.scene-card {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.scene-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.scene-card.active {
+  border: 2px solid var(--primary-color);
+}
+
+.light-bulb-icon {
+  font-size: 48px;
+  transition: color 0.3s;
+}
+
+.light-bulb-icon.on {
+  color: var(--secondary-color);
+}
+
+.light-bulb-icon.off {
+  color: var(--text-secondary);
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.status-connected {
+  background-color: #4caf50;
+}
+
+.status-disconnected {
+  background-color: #f44336;
+}
+
+.status-connecting {
+  background-color: #ff9800;
+}
+
+@media (max-width: 768px) {
+  .chart-container {
+    height: 200px;
+  }
+}

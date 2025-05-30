@@ -1,0 +1,59 @@
+version: '3'
+
+services:
+  # MQTT Broker
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883"   # MQTT
+      - "9001:9001"   # WebSockets
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    restart: unless-stopped
+    networks:
+      - smartlight-network
+
+  # Backend API
+  backend:
+    build:
+      context: ../web_dashboard/backend
+      dockerfile: Dockerfile
+    container_name: smartlight-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - MQTT_BROKER=mqtt-broker
+      - MQTT_PORT=1883
+      - MQTT_USERNAME=
+      - MQTT_PASSWORD=
+      - PORT=5000
+    depends_on:
+      - mqtt-broker
+    restart: unless-stopped
+    networks:
+      - smartlight-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ../web_dashboard/frontend
+      dockerfile: Dockerfile
+    container_name: smartlight-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - smartlight-network
+
+networks:
+  smartlight-network:
+    driver: bridge
+
+volumes:
+  mosquitto-data:
+  mosquitto-log:

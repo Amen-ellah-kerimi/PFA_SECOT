@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  mqtt:
+    image: eclipse-mosquitto:latest
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./WeatherStation/deployment/mosquitto-secure.conf:/mosquitto/config/mosquitto.conf
+      - ./WeatherStation/deployment/acl-secure:/mosquitto/config/acl
+      - ./WeatherStation/deployment/passwd:/mosquitto/config/passwd
+      - ./WeatherStation/deployment/data:/mosquitto/data
+      - ./WeatherStation/deployment/log:/mosquitto/log
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../../WeatherStation/web_dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - MQTT_BROKER=mqtt
+      - MQTT_PORT=1883
+      - MQTT_WEBSOCKET_PORT=9001
+      - MQTT_USERNAME=web_dashboard
+      - MQTT_PASSWORD=WebDashboard2024!
+    depends_on:
+      - mqtt
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8883:8883"
+      - "9443:9443"
+    volumes:
+      - ./WeatherStation/deployment/nginx.conf:/etc/nginx/nginx.conf
+      - ./WeatherStation/deployment/certs:/etc/nginx/certs
+    depends_on:
+      - mqtt
+    restart: unless-stopped
