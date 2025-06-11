@@ -99,32 +99,32 @@ def install_openssl():
         print(f"Error installing OpenSSL: {e}")
         return False
 
-def check_mosquitto():
-    try:
-        subprocess.run(['mosquitto', '-v'], check=True, capture_output=True)
-        return True
-    except (subprocess.SubprocessError, FileNotFoundError):
-        return False
-
-def install_mosquitto():
-    print("\nInstalling Mosquitto using Chocolatey...")
-    try:
-        # Run choco install with elevated privileges
-        subprocess.run(['choco', 'install', 'mosquitto', '-y', '--force'], check=True)
-        
-        # Refresh environment variables
-        os.environ['PATH'] = subprocess.check_output(['powershell', '-Command', '[Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [Environment]::GetEnvironmentVariable("Path", "User")']).decode().strip()
-        
-        # Verify installation
-        if check_mosquitto():
-            print("Mosquitto installed successfully!")
-            return True
-        else:
-            print("Mosquitto installation completed but verification failed.")
-            return False
-    except subprocess.SubprocessError as e:
-        print(f"Error installing Mosquitto: {e}")
-        return False
+# def check_mosquitto():
+#     try:
+#         subprocess.run(['mosquitto', '-v'], check=True, capture_output=True)
+#         return True
+#     except (subprocess.SubprocessError, FileNotFoundError):
+#         return False
+#
+# def install_mosquitto():
+#     print("\nInstalling Mosquitto using Chocolatey...")
+#     try:
+#         # Run choco install with elevated privileges
+#         subprocess.run(['choco', 'install', 'mosquitto', '-y', '--force'], check=True)
+#         
+#         # Refresh environment variables
+#         os.environ['PATH'] = subprocess.check_output(['powershell', '-Command', '[Environment]::GetEnvironmentVariable("Path", "Machine") + \";\" + [Environment]::GetEnvironmentVariable("Path", "User")']).decode().strip()
+#         
+#         # Verify installation
+#         if check_mosquitto():
+#             print("Mosquitto installed successfully!")
+#             return True
+#         else:
+#             print("Mosquitto installation completed but verification failed.")
+#             return False
+#     except subprocess.SubprocessError as e:
+#         print(f"Error installing Mosquitto: {e}")
+#         return False
 
 def check_python_installed():
     """Check if Python is installed and accessible."""
@@ -189,17 +189,17 @@ def main():
         print("OpenSSL is already installed.")
 
     # Check and install Mosquitto
-    if not check_mosquitto():
-        if not install_mosquitto():
-            print("\nFailed to install Mosquitto automatically.")
-            print("Please follow these steps manually:")
-            print("1. Open PowerShell as Administrator")
-            print("2. Run: choco install mosquitto -y")
-            print("3. Close and reopen PowerShell as Administrator")
-            print("4. Run this script again")
-            sys.exit(1)
-    else:
-        print("Mosquitto is already installed.")
+    # if not check_mosquitto():
+    #     if not install_mosquitto():
+    #         print("\nFailed to install Mosquitto automatically.")
+    #         print("Please follow these steps manually:")
+    #         print("1. Open PowerShell as Administrator")
+    #         print("2. Run: choco install mosquitto -y")
+    #         print("3. Close and reopen PowerShell as Administrator")
+    #         print("4. Run this script again")
+    #         sys.exit(1)
+    # else:
+    #     print("Mosquitto is already installed.")
 
     # Check Python installation
     if not check_python_installed():

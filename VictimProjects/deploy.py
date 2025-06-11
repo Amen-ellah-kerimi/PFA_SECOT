@@ -81,7 +81,7 @@ max_queued_messages 1000
 max_packet_size 0
 """
     
-    with open(f'VictimProjects/{project}/deployment/mosquitto-{security_level}.conf', 'w') as f:
+    with open(f'{project}/deployment/mosquitto-{security_level}.conf', 'w') as f:
         f.write(conf_content)
 
 def create_docker_compose(project, security_level):
@@ -96,11 +96,11 @@ services:
       - "{ports['mqtt']}:1883"
       - "{ports['websocket']}:9001"
     volumes:
-      - ./{project}/deployment/mosquitto-{security_level}.conf:/mosquitto/config/mosquitto.conf
-      - ./{project}/deployment/acl-{security_level}:/mosquitto/config/acl
-      - ./{project}/deployment/passwd:/mosquitto/config/passwd
-      - ./{project}/deployment/data:/mosquitto/data
-      - ./{project}/deployment/log:/mosquitto/log
+      - ./mosquitto-{security_level}.conf:/mosquitto/config/mosquitto.conf
+      - ./acl-{security_level}:/mosquitto/config/acl
+      - ./passwd:/mosquitto/config/passwd
+      - ./data:/mosquitto/data
+      - ./log:/mosquitto/log
     restart: unless-stopped
 
   web:
@@ -128,14 +128,14 @@ services:
       - "{ports['mqtt_secure']}:8883"
       - "{ports['websocket_secure']}:9443"
     volumes:
-      - ./{project}/deployment/nginx.conf:/etc/nginx/nginx.conf
-      - ./{project}/deployment/certs:/etc/nginx/certs
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./certs:/etc/nginx/certs
     depends_on:
       - mqtt
     restart: unless-stopped
 """
     
-    with open(f'VictimProjects/{project}/deployment/docker-compose.yml', 'w') as f:
+    with open(f'{project}/deployment/docker-compose.yml', 'w') as f:
         f.write(compose_content)
 
 def create_nginx_conf(project):
@@ -175,7 +175,7 @@ stream {{
     }}
 }}
 """
-    with open(f'VictimProjects/{project}/deployment/nginx.conf', 'w') as f:
+    with open(f'{project}/deployment/nginx.conf', 'w') as f:
         f.write(nginx_conf)
 
 def setup_security(project, security_level):
@@ -199,12 +199,12 @@ android_app:AndroidApp2024!
 admin:Admin2024!
 """
 
-    with open(f'VictimProjects/{project}/deployment/passwd', 'w') as f:
+    with open(f'{project}/deployment/passwd', 'w') as f:
         f.write(passwd_content)
 
     # Create certificates for secure level
     if security_level == 'secure':
-        certs_dir = f'VictimProjects/{project}/deployment/certs'
+        certs_dir = f'{project}/deployment/certs'
         os.makedirs(certs_dir, exist_ok=True)
         
         # Generate self-signed certificates
@@ -220,8 +220,8 @@ def deploy(project, security_level):
     print(f"\nDeploying {project} with {security_level} security...")
     
     # Create necessary directories
-    os.makedirs(f'VictimProjects/{project}/deployment/data', exist_ok=True)
-    os.makedirs(f'VictimProjects/{project}/deployment/log', exist_ok=True)
+    os.makedirs(f'{project}/deployment/data', exist_ok=True)
+    os.makedirs(f'{project}/deployment/log', exist_ok=True)
     
     # Create configurations
     create_mosquitto_conf(project, security_level)
@@ -235,10 +235,10 @@ def deploy(project, security_level):
         create_nginx_conf(project)
     
     # Start services
-    os.chdir(f'VictimProjects/{project}/deployment')
+    os.chdir(f'{project}/deployment')
     run_command('docker-compose down')
     run_command('docker-compose up -d')
-    os.chdir('../../..')
+    os.chdir('../..')
 
 def main():
     """Main deployment function"""
@@ -249,11 +249,7 @@ def main():
 
     security_level = sys.argv[1]
     
-    # Stop all running containers
-    run_command('docker-compose -f VictimProjects/WeatherStation/deployment/docker-compose.yml down')
-    run_command('docker-compose -f VictimProjects/SmartLight/deployment/docker-compose.yml down')
-    
-    # Deploy both projects
+    # Deploy each project
     for project in PROJECTS:
         deploy(project, security_level)
     

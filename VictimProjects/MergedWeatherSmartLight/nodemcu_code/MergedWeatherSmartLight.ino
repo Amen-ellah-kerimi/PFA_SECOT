@@ -16,7 +16,6 @@
  * - 16x2 LCD display (I2C)
  * - Buzzer for alerts
  * - 3 LEDs (Red, Yellow, Blue)
- * - LDR (Light Dependent Resistor) for ambient light sensing
  * 
  * Libraries required:
  * - ESP8266WiFi
@@ -43,7 +42,6 @@
 #define YELLOW_PIN D2   // Yellow LED pin
 #define BLUE_PIN D3     // Blue LED pin
 #define BUZZER_PIN D5   // Buzzer pin
-#define LDR_PIN A0      // Light sensor analog pin
 #define STATUS_LED D0   // Status LED pin
 
 // LCD Configuration
@@ -97,15 +95,18 @@ Z0MMgxQ0sON5jl76S1aYfpzT0c0JvjYPtqtD9GDpnN55oOJmKPaEABaUnhF3TN7f
 // MQTT configurations for different security levels
 const MqttConfig mqttConfigs[] = {
   // No security
-  {"localhost", 1883, "", "", false},
+  {"192.168.152.76", 1883, "", "", false},
   // Basic security
-  {"localhost", 1884, "weather_station", "1234", false},
+  {"192.168.152.76", 1884, "weather_station", "1234", false},
   // Secure TLS
-  {"localhost", 8883, "weather_station", "WeatherStation2024!", true}
+  {"192.168.152.76", 8883, "weather_station", "WeatherStation2024!", true}
 };
 
 // Current MQTT configuration index
 int currentMqttConfig = 0;
+
+// Client ID for MQTT
+const char* client_id = "MergedWeatherSmartLight";
 
 // MQTT Topics
 // Weather Station Topics
@@ -119,7 +120,6 @@ const char* light_state_topic = "home/smartlight/state";
 const char* light_command_topic = "home/smartlight/command";
 const char* light_brightness_topic = "home/smartlight/brightness";
 const char* light_color_topic = "home/smartlight/color";
-const char* light_ambient_topic = "home/smartlight/ambient";
 const char* light_motion_topic = "home/smartlight/motion";
 const char* light_status_topic = "home/smartlight/status";
 
@@ -128,8 +128,6 @@ unsigned long lastSensorReadTime = 0;
 const long sensorReadInterval = 10000;  // Read sensor every 10 seconds
 unsigned long lastMqttReconnectAttempt = 0;
 const long mqttReconnectInterval = 5000;  // Try to reconnect every 5 seconds
-unsigned long lastAmbientReadTime = 0;
-const long ambientReadInterval = 5000;   // Read ambient light every 5 seconds
 unsigned long lastLCDUpdateTime = 0;
 const long lcdUpdateInterval = 1000;     // Update LCD every second
 unsigned long lastBuzzerTime = 0;
@@ -180,11 +178,13 @@ void setup() {
   
   // Initialize I2C and LCD
   Wire.begin();
+  Serial.println("Initializing LCD...");
   lcd.init();
   lcd.backlight();
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Initializing...");
+  Serial.println("LCD initialized");
   
   // Initialize DHT sensor
   dht.begin();
@@ -247,11 +247,6 @@ void loop() {
     checkAlerts();
   }
   
-  if (currentMillis - lastAmbientReadTime > ambientReadInterval) {
-    lastAmbientReadTime = currentMillis;
-    readAmbientLight();
-  }
-  
   if (currentMillis - lastLCDUpdateTime > lcdUpdateInterval) {
     lastLCDUpdateTime = currentMillis;
     updateLCD();
@@ -293,7 +288,7 @@ void initializeMqtt() {
     
     if (config.useTLS) {
       // Use secure client for TLS
-      espClientSecure.setCACert(ca_cert);
+      espClientSecure.setCACert((const uint8_t*)ca_cert, strlen(ca_cert));
       mqttClient = new PubSubClient(espClientSecure);
     } else {
       // Use regular client for non-TLS
@@ -370,18 +365,18 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   }
   else if (strcmp(topic, light_color_topic) == 0) {
     // Parse RGB color JSON
-    DynamicJsonDocument doc(256);
+    JsonDocument doc;
     deserializeJson(doc, message);
     
-    if (doc.containsKey("r")) {
+    if (doc["r"].is<int>()) {
       int r = doc["r"];
       handleLEDCommand(RED_PIN, redLED, r > 0 ? "ON" : "OFF");
     }
-    if (doc.containsKey("g")) {
+    if (doc["g"].is<int>()) {
       int g = doc["g"];
       handleLEDCommand(YELLOW_PIN, yellowLED, g > 0 ? "ON" : "OFF");
     }
-    if (doc.containsKey("b")) {
+    if (doc["b"].is<int>()) {
       int b = doc["b"];
       handleLEDCommand(BLUE_PIN, blueLED, b > 0 ? "ON" : "OFF");
     }
@@ -446,12 +441,6 @@ void readSensor() {
   Serial.println(" %");
 }
 
-void readAmbientLight() {
-  int ambientLight = analogRead(LDR_PIN);
-  Serial.print("Ambient Light: ");
-  Serial.println(ambientLight);
-}
-
 void publishWeatherData() {
   if (!mqttClient || !mqttClient->connected()) return;
   
@@ -464,7 +453,7 @@ void publishWeatherData() {
   mqttClient->publish(humidity_topic, humStr.c_str(), true);
   
   // Publish detailed JSON data
-  DynamicJsonDocument jsonDoc(256);
+  JsonDocument jsonDoc;
   jsonDoc["temperature"] = temperature;
   jsonDoc["humidity"] = humidity;
   jsonDoc["timestamp"] = millis();
@@ -479,7 +468,7 @@ void publishWeatherData() {
 void publishLEDStates() {
   if (!mqttClient || !mqttClient->connected()) return;
   
-  DynamicJsonDocument jsonDoc(512);
+  JsonDocument jsonDoc;
   
   // Calculate overall light state
   bool anyLightOn = redLED.isOn || yellowLED.isOn || blueLED.isOn;
@@ -496,9 +485,6 @@ void publishLEDStates() {
   jsonDoc["color"]["r"] = redLED.isOn ? 255 : 0;
   jsonDoc["color"]["g"] = yellowLED.isOn ? 255 : 0;
   jsonDoc["color"]["b"] = blueLED.isOn ? 255 : 0;
-  
-  // Add ambient light reading
-  jsonDoc["ambient"] = analogRead(LDR_PIN);
   
   // Add motion state (always false for now, as we don't have a motion sensor)
   jsonDoc["motion"] = false;
@@ -523,6 +509,13 @@ void blinkStatusLED(int times) {
 }
 
 void updateLCD() {
+  Serial.println("Updating LCD...");
+  Serial.print("Current Temperature: ");
+  Serial.print(temperature);
+  Serial.print(" °C, Humidity: ");
+  Serial.print(humidity);
+  Serial.println(" %");
+  
   lcd.clear();
   
   // First row: Temperature and Humidity
@@ -541,6 +534,8 @@ void updateLCD() {
   lcd.print(yellowLED.isOn ? "ON " : "OFF");
   lcd.print("B:");
   lcd.print(blueLED.isOn ? "ON" : "OFF");
+  
+  Serial.println("LCD update complete");
 }
 
 void checkAlerts() {
@@ -567,7 +562,7 @@ void checkAlerts() {
     alertActive = newAlert;
     if (alertActive) {
       // Publish alert to MQTT
-      DynamicJsonDocument jsonDoc(256);
+      JsonDocument jsonDoc;
       jsonDoc["alert"] = alertMessage;
       jsonDoc["temperature"] = temperature;
       jsonDoc["humidity"] = humidity;
@@ -591,4 +586,17 @@ void triggerBuzzer() {
     digitalWrite(BUZZER_PIN, LOW);
     delay(100);
   }
+}
+
+void publishStatus() {
+  if (!mqttClient || !mqttClient->connected()) return;
+  
+  JsonDocument jsonDoc;
+  jsonDoc["status"] = "online";
+  jsonDoc["device_id"] = client_id;
+  jsonDoc["timestamp"] = millis();
+  
+  String jsonString;
+  serializeJson(jsonDoc, jsonString);
+  mqttClient->publish(weather_status_topic, jsonString.c_str(), true);
 } 

@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  mqtt:
+    image: eclipse-mosquitto:latest
+    ports:
+      - "1884:1883"
+      - "9002:9001"
+    volumes:
+      - ./SmartLight/deployment/mosquitto-no-security.conf:/mosquitto/config/mosquitto.conf
+      - ./SmartLight/deployment/acl-no-security:/mosquitto/config/acl
+      - ./SmartLight/deployment/passwd:/mosquitto/config/passwd
+      - ./SmartLight/deployment/data:/mosquitto/data
+      - ./SmartLight/deployment/log:/mosquitto/log
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../web_dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "8081:80"
+    environment:
+      - MQTT_BROKER=mqtt
+      - MQTT_PORT=1883
+      - MQTT_WEBSOCKET_PORT=9001
+      - MQTT_USERNAME=web_dashboard
+      - MQTT_PASSWORD=
+    depends_on:
+      - mqtt
+    restart: unless-stopped

@@ -1,17 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import mqtt from 'mqtt';
+import axios from 'axios';
 
 // Create context
 const MqttContext = createContext(null);
 
-// MQTT topics
-const LIGHT_STATE_TOPIC = 'home/smartlight/state';
-const LIGHT_COMMAND_TOPIC = 'home/smartlight/command';
-const LIGHT_BRIGHTNESS_TOPIC = 'home/smartlight/brightness';
-const LIGHT_COLOR_TOPIC = 'home/smartlight/color';
-const LIGHT_AMBIENT_TOPIC = 'home/smartlight/ambient';
-const LIGHT_MOTION_TOPIC = 'home/smartlight/motion';
-const STATUS_TOPIC = 'home/smartlight/status';
+// API endpoints
+const API_BASE_URL = 'http://localhost:5000/api';
 
 // Connection states
 export const CONNECTION_STATE = {
@@ -22,215 +16,70 @@ export const CONNECTION_STATE = {
 
 // Provider component
 export const MqttProvider = ({ children }) => {
-  const [client, setClient] = useState(null);
-  const [connectionState, setConnectionState] = useState(CONNECTION_STATE.DISCONNECTED);
-  const [error, setError] = useState(null);
-  
-  // Light state
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [lightState, setLightState] = useState({
     state: 'OFF',
-    brightness: 255,
-    color: { r: 255, g: 255, b: 255 },
-    ambient: 0,
-    motion: false,
-    timestamp: 0
+    brightness: 0,
+    color: { r: 0, g: 0, b: 0 },
+    motion: false
   });
-  
-  // History data
-  const [brightnessHistory, setBrightnessHistory] = useState([]);
-  const [ambientHistory, setAmbientHistory] = useState([]);
-  const [motionHistory, setMotionHistory] = useState([]);
-  const [deviceStatus, setDeviceStatus] = useState({});
-  
-  // Connection settings
-  const [settings, setSettings] = useState(() => {
-    const savedSettings = localStorage.getItem('mqtt_settings');
-    return savedSettings ? JSON.parse(savedSettings) : {
-      host: 'localhost',
-      port: 9001,
-      clientId: `web_dashboard_${Math.random().toString(16).substring(2, 8)}`,
-      username: '',
-      password: '',
-      useSSL: false,
-    };
-  });
-  
-  // Save settings to localStorage
+
+  // Poll for updates
   useEffect(() => {
-    localStorage.setItem('mqtt_settings', JSON.stringify(settings));
-  }, [settings]);
-  
-  // Connect to MQTT broker
-  const connect = useCallback(() => {
-    if (client) {
-      client.end();
-    }
-    
-    setConnectionState(CONNECTION_STATE.CONNECTING);
-    setError(null);
-    
-    const { host, port, clientId, username, password, useSSL } = settings;
-    const protocol = useSSL ? 'wss' : 'ws';
-    const url = `${protocol}://${host}:${port}/mqtt`;
-    
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/status`);
+        setConnectionStatus(response.data.connection_status);
+        setLightState(response.data.light_state);
+      } catch (error) {
+        console.error('Error polling status:', error);
+        setConnectionStatus('error');
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, []);
+
+  const toggleLight = useCallback(async () => {
     try {
-      const mqttClient = mqtt.connect(url, {
-        clientId,
-        username: username || undefined,
-        password: password || undefined,
-        clean: true,
-        reconnectPeriod: 5000,
-        connectTimeout: 30 * 1000,
-      });
-      
-      mqttClient.on('connect', () => {
-        console.log('Connected to MQTT broker');
-        setConnectionState(CONNECTION_STATE.CONNECTED);
-        
-        // Subscribe to topics
-        mqttClient.subscribe([
-          LIGHT_STATE_TOPIC,
-          LIGHT_AMBIENT_TOPIC,
-          LIGHT_MOTION_TOPIC,
-          STATUS_TOPIC,
-        ]);
-      });
-      
-      mqttClient.on('error', (err) => {
-        console.error('MQTT error:', err);
-        setError(err.message);
-        setConnectionState(CONNECTION_STATE.DISCONNECTED);
-      });
-      
-      mqttClient.on('offline', () => {
-        console.log('MQTT client offline');
-        setConnectionState(CONNECTION_STATE.DISCONNECTED);
-      });
-      
-      mqttClient.on('message', (topic, message) => {
-        const payload = message.toString();
-        console.log(`Received message on ${topic}: ${payload}`);
-        
-        try {
-          if (topic === LIGHT_STATE_TOPIC) {
-            const state = JSON.parse(payload);
-            setLightState(state);
-            
-            // Add to history
-            if (state.brightness !== undefined) {
-              setBrightnessHistory(prev => {
-                const newHistory = [...prev, { value: state.brightness, timestamp: new Date() }];
-                // Keep only the last 50 readings
-                return newHistory.slice(-50);
-              });
-            }
-          } else if (topic === LIGHT_AMBIENT_TOPIC) {
-            const ambient = parseInt(payload);
-            setLightState(prev => ({ ...prev, ambient }));
-            
-            // Add to history
-            setAmbientHistory(prev => {
-              const newHistory = [...prev, { value: ambient, timestamp: new Date() }];
-              // Keep only the last 50 readings
-              return newHistory.slice(-50);
-            });
-          } else if (topic === LIGHT_MOTION_TOPIC) {
-            const motion = payload === '1';
-            setLightState(prev => ({ ...prev, motion }));
-            
-            // Add to history
-            setMotionHistory(prev => {
-              const newHistory = [...prev, { value: motion, timestamp: new Date() }];
-              // Keep only the last 50 readings
-              return newHistory.slice(-50);
-            });
-          } else if (topic === STATUS_TOPIC) {
-            const status = JSON.parse(payload);
-            setDeviceStatus(status);
-          }
-        } catch (err) {
-          console.error('Error processing message:', err);
-        }
-      });
-      
-      setClient(mqttClient);
-    } catch (err) {
-      console.error('MQTT connection error:', err);
-      setError(err.message);
-      setConnectionState(CONNECTION_STATE.DISCONNECTED);
+      await axios.post(`${API_BASE_URL}/light/toggle`);
+    } catch (error) {
+      console.error('Error toggling light:', error);
     }
-  }, [client, settings]);
-  
-  // Disconnect from MQTT broker
-  const disconnect = useCallback(() => {
-    if (client) {
-      client.end();
-      setClient(null);
-      setConnectionState(CONNECTION_STATE.DISCONNECTED);
-    }
-  }, [client]);
-  
-  // Toggle light state
-  const toggleLight = useCallback(() => {
-    if (client && connectionState === CONNECTION_STATE.CONNECTED) {
-      const command = lightState.state === 'ON' ? 'OFF' : 'ON';
-      client.publish(LIGHT_COMMAND_TOPIC, command);
-    }
-  }, [client, connectionState, lightState.state]);
-  
-  // Set light state
-  const setLight = useCallback((state) => {
-    if (client && connectionState === CONNECTION_STATE.CONNECTED) {
-      client.publish(LIGHT_COMMAND_TOPIC, state ? 'ON' : 'OFF');
-    }
-  }, [client, connectionState]);
-  
-  // Set brightness
-  const setBrightness = useCallback((brightness) => {
-    if (client && connectionState === CONNECTION_STATE.CONNECTED) {
-      client.publish(LIGHT_BRIGHTNESS_TOPIC, brightness.toString());
-    }
-  }, [client, connectionState]);
-  
-  // Set color
-  const setColor = useCallback((color) => {
-    if (client && connectionState === CONNECTION_STATE.CONNECTED) {
-      const colorJson = JSON.stringify(color);
-      client.publish(LIGHT_COLOR_TOPIC, colorJson);
-    }
-  }, [client, connectionState]);
-  
-  // Update connection settings
-  const updateSettings = useCallback((newSettings) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
   }, []);
-  
-  // Clear history data
-  const clearHistory = useCallback(() => {
-    setBrightnessHistory([]);
-    setAmbientHistory([]);
-    setMotionHistory([]);
+
+  const setBrightness = useCallback(async (brightness) => {
+    try {
+      await axios.post(`${API_BASE_URL}/brightness`, { brightness });
+    } catch (error) {
+      console.error('Error setting brightness:', error);
+    }
   }, []);
-  
+
+  const setColor = useCallback(async (color) => {
+    try {
+      await axios.post(`${API_BASE_URL}/color`, { color });
+    } catch (error) {
+      console.error('Error setting color:', error);
+    }
+  }, []);
+
+  const reconnect = useCallback(async () => {
+    try {
+      await axios.post(`${API_BASE_URL}/reconnect`);
+    } catch (error) {
+      console.error('Error reconnecting:', error);
+    }
+  }, []);
+
   // Context value
   const value = {
-    client,
-    connectionState,
-    error,
+    connectionStatus,
     lightState,
-    brightnessHistory,
-    ambientHistory,
-    motionHistory,
-    deviceStatus,
-    settings,
-    connect,
-    disconnect,
     toggleLight,
-    setLight,
     setBrightness,
     setColor,
-    updateSettings,
-    clearHistory,
+    reconnect
   };
   
   return (

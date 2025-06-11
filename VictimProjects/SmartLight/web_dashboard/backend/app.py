@@ -7,6 +7,7 @@ from flask_cors import CORS
 import paho.mqtt.client as mqtt
 import threading
 import logging
+from threading import Lock
 
 # Configure logging
 logging.basicConfig(
@@ -19,140 +20,86 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, static_folder='../frontend/dist')
 CORS(app)  # Enable CORS for all routes
 
-# MQTT settings
-mqtt_settings = {
-    'broker': os.environ.get('MQTT_BROKER', 'localhost'),
-    'port': int(os.environ.get('MQTT_PORT', 1883)),
-    'username': os.environ.get('MQTT_USERNAME', ''),
-    'password': os.environ.get('MQTT_PASSWORD', ''),
-    'client_id': f'flask_backend_{int(time.time())}',
-    'use_tls': os.environ.get('MQTT_USE_TLS', 'false').lower() == 'true',
-    'topics': {
-        'state': 'home/smartlight/state',
-        'command': 'home/smartlight/command',
-        'brightness': 'home/smartlight/brightness',
-        'color': 'home/smartlight/color',
-        'ambient': 'home/smartlight/ambient',
-        'motion': 'home/smartlight/motion',
-        'status': 'home/smartlight/status'
-    }
-}
-
-# In-memory data store
-data_store = {
-    'light_state': {
-        'state': 'OFF',
-        'brightness': 255,
-        'color': {'r': 255, 'g': 255, 'b': 255},
-        'ambient': 0,
-        'motion': False,
-        'timestamp': 0
+# MQTT Broker configurations
+MQTT_CONFIGS = [
+    # No security
+    {
+        'host': '192.168.1.100',
+        'port': 1883,
+        'username': '',
+        'password': '',
+        'use_tls': False
     },
-    'brightness_history': [],
-    'ambient_history': [],
-    'motion_history': [],
-    'device_status': {},
-    'last_update': None
+    # Basic security
+    {
+        'host': '192.168.1.100',
+        'port': 1884,
+        'username': 'smart_light',
+        'password': '1234',
+        'use_tls': False
+    },
+    # Secure TLS
+    {
+        'host': '192.168.1.100',
+        'port': 8883,
+        'username': 'smart_light',
+        'password': 'SmartLight2024!',
+        'use_tls': True
+    }
+]
+
+# MQTT Topics
+TOPICS = {
+    'state': 'home/smartlight/state',
+    'command': 'home/smartlight/command',
+    'brightness': 'home/smartlight/brightness',
+    'color': 'home/smartlight/color',
+    'motion': 'home/smartlight/motion',
+    'status': 'home/smartlight/status'
 }
 
-# Maximum number of readings to keep
-MAX_READINGS = 100
-
-# MQTT client
+# Global state
 mqtt_client = None
-mqtt_connected = False
+current_config_index = 0
+connection_status = 'disconnected'
+light_state = {
+    'state': 'OFF',
+    'brightness': 0,
+    'color': {'r': 0, 'g': 0, 'b': 0},
+    'motion': False
+}
+state_lock = Lock()
 
 # MQTT callbacks
 def on_connect(client, userdata, flags, rc):
-    global mqtt_connected
+    global connection_status
     if rc == 0:
         logger.info("Connected to MQTT broker")
-        mqtt_connected = True
-
-        # Subscribe to topics
-        for topic in mqtt_settings['topics'].values():
+        connection_status = 'connected'
+        # Subscribe to all topics
+        for topic in TOPICS.values():
             client.subscribe(topic)
-            logger.info(f"Subscribed to {topic}")
     else:
-        logger.error(f"Failed to connect to MQTT broker with code {rc}")
-        mqtt_connected = False
+        logger.error(f"Failed to connect to MQTT broker with code: {rc}")
+        connection_status = 'error'
+        try_next_config()
 
 def on_disconnect(client, userdata, rc):
-    global mqtt_connected
+    global connection_status
     logger.info("Disconnected from MQTT broker")
-    mqtt_connected = False
+    connection_status = 'disconnected'
 
 def on_message(client, userdata, msg):
-    topic = msg.topic
-    payload = msg.payload.decode('utf-8')
-    logger.debug(f"Received message on {topic}: {payload}")
-
+    global light_state
     try:
-        # Update last update time
-        data_store['last_update'] = datetime.now().isoformat()
-
-        # Process message based on topic
-        if topic == mqtt_settings['topics']['state']:
-            state_data = json.loads(payload)
-            data_store['light_state'] = state_data
-
-            # Add to history
-            if 'brightness' in state_data:
-                data_store['brightness_history'].append({
-                    'value': state_data['brightness'],
-                    'timestamp': datetime.now().isoformat()
-                })
-                # Limit the number of readings
-                if len(data_store['brightness_history']) > MAX_READINGS:
-                    data_store['brightness_history'] = data_store['brightness_history'][-MAX_READINGS:]
-
-            if 'ambient' in state_data:
-                data_store['ambient_history'].append({
-                    'value': state_data['ambient'],
-                    'timestamp': datetime.now().isoformat()
-                })
-                # Limit the number of readings
-                if len(data_store['ambient_history']) > MAX_READINGS:
-                    data_store['ambient_history'] = data_store['ambient_history'][-MAX_READINGS:]
-
-            if 'motion' in state_data:
-                data_store['motion_history'].append({
-                    'value': state_data['motion'],
-                    'timestamp': datetime.now().isoformat()
-                })
-                # Limit the number of readings
-                if len(data_store['motion_history']) > MAX_READINGS:
-                    data_store['motion_history'] = data_store['motion_history'][-MAX_READINGS:]
-
-        elif topic == mqtt_settings['topics']['ambient']:
-            ambient = int(payload)
-            data_store['light_state']['ambient'] = ambient
-
-            # Add to history
-            data_store['ambient_history'].append({
-                'value': ambient,
-                'timestamp': datetime.now().isoformat()
-            })
-            # Limit the number of readings
-            if len(data_store['ambient_history']) > MAX_READINGS:
-                data_store['ambient_history'] = data_store['ambient_history'][-MAX_READINGS:]
-
-        elif topic == mqtt_settings['topics']['motion']:
-            motion = payload == '1'
-            data_store['light_state']['motion'] = motion
-
-            # Add to history
-            data_store['motion_history'].append({
-                'value': motion,
-                'timestamp': datetime.now().isoformat()
-            })
-            # Limit the number of readings
-            if len(data_store['motion_history']) > MAX_READINGS:
-                data_store['motion_history'] = data_store['motion_history'][-MAX_READINGS:]
-
-        elif topic == mqtt_settings['topics']['status']:
-            data_store['device_status'] = json.loads(payload)
-
+        payload = msg.payload.decode()
+        if msg.topic == TOPICS['state']:
+            with state_lock:
+                data = json.loads(payload)
+                light_state.update(data)
+        elif msg.topic == TOPICS['motion']:
+            with state_lock:
+                light_state['motion'] = payload == '1'
     except Exception as e:
         logger.error(f"Error processing message: {e}")
 
@@ -161,8 +108,8 @@ def init_mqtt():
     global mqtt_client
 
     # Create MQTT client with proper API version
-    mqtt_client = mqtt.Client(client_id=mqtt_settings['client_id'])
-    mqtt_client._client_id = mqtt_settings['client_id']
+    mqtt_client = mqtt.Client()
+    mqtt_client._client_id = f'flask_backend_{int(time.time())}'
 
     # Set callbacks
     mqtt_client.on_connect = on_connect
@@ -170,71 +117,59 @@ def init_mqtt():
     mqtt_client.on_message = on_message
 
     # Set credentials if provided
-    if mqtt_settings['username'] and mqtt_settings['password']:
-        mqtt_client.username_pw_set(mqtt_settings['username'], mqtt_settings['password'])
+    if MQTT_CONFIGS[current_config_index]['username'] and MQTT_CONFIGS[current_config_index]['password']:
+        mqtt_client.username_pw_set(MQTT_CONFIGS[current_config_index]['username'], MQTT_CONFIGS[current_config_index]['password'])
 
     # Set TLS if enabled
-    if mqtt_settings['use_tls']:
+    if MQTT_CONFIGS[current_config_index]['use_tls']:
         mqtt_client.tls_set()
 
     # Connect to broker
     try:
-        mqtt_client.connect(mqtt_settings['broker'], mqtt_settings['port'], 60)
+        mqtt_client.connect(MQTT_CONFIGS[current_config_index]['host'], MQTT_CONFIGS[current_config_index]['port'], 60)
         mqtt_client.loop_start()
-        logger.info(f"Connecting to MQTT broker at {mqtt_settings['broker']}:{mqtt_settings['port']}")
+        logger.info(f"Connecting to MQTT broker at {MQTT_CONFIGS[current_config_index]['host']}:{MQTT_CONFIGS[current_config_index]['port']}")
     except Exception as e:
         logger.error(f"Failed to connect to MQTT broker: {e}")
 
 # API routes
 @app.route('/api/status', methods=['GET'])
 def get_status():
-    return jsonify({
-        'mqtt_connected': mqtt_connected,
-        'broker': mqtt_settings['broker'],
-        'port': mqtt_settings['port'],
-        'last_update': data_store['last_update'],
-        'readings_count': {
-            'brightness': len(data_store['brightness_history']),
-            'ambient': len(data_store['ambient_history']),
-            'motion': len(data_store['motion_history'])
-        },
-        'device_status': data_store['device_status']
-    })
+    with state_lock:
+        return jsonify({
+            'connection_status': connection_status,
+            'light_state': light_state
+        })
 
 @app.route('/api/data', methods=['GET'])
 def get_data():
     return jsonify({
-        'light_state': data_store['light_state'],
-        'brightness_history': data_store['brightness_history'],
-        'ambient_history': data_store['ambient_history'],
-        'motion_history': data_store['motion_history'],
-        'device_status': data_store['device_status'],
-        'last_update': data_store['last_update']
+        'light_state': light_state,
+        'brightness_history': [],
+        'motion_history': [],
+        'device_status': {},
+        'last_update': None
     })
 
 @app.route('/api/light', methods=['GET'])
 def get_light():
-    return jsonify(data_store['light_state'])
+    return jsonify(light_state)
 
 @app.route('/api/brightness', methods=['GET'])
 def get_brightness_history():
-    return jsonify(data_store['brightness_history'])
-
-@app.route('/api/ambient', methods=['GET'])
-def get_ambient_history():
-    return jsonify(data_store['ambient_history'])
+    return jsonify([])
 
 @app.route('/api/motion', methods=['GET'])
 def get_motion_history():
-    return jsonify(data_store['motion_history'])
+    return jsonify([])
 
 @app.route('/api/device', methods=['GET'])
 def get_device():
-    return jsonify(data_store['device_status'])
+    return jsonify({})
 
 @app.route('/api/publish', methods=['POST'])
 def publish_message():
-    if not mqtt_connected:
+    if connection_status != 'connected':
         return jsonify({'success': False, 'error': 'Not connected to MQTT broker'}), 503
 
     data = request.json
@@ -253,7 +188,7 @@ def publish_message():
 
 @app.route('/api/command', methods=['POST'])
 def send_command():
-    if not mqtt_connected:
+    if connection_status != 'connected':
         return jsonify({'success': False, 'error': 'Not connected to MQTT broker'}), 503
 
     data = request.json
@@ -263,7 +198,7 @@ def send_command():
     command = data['command']
 
     try:
-        mqtt_client.publish(mqtt_settings['topics']['command'], command)
+        mqtt_client.publish(TOPICS['command'], command)
         return jsonify({'success': True})
     except Exception as e:
         logger.error(f"Error sending command: {e}")
@@ -271,7 +206,7 @@ def send_command():
 
 @app.route('/api/brightness', methods=['POST'])
 def set_brightness():
-    if not mqtt_connected:
+    if connection_status != 'connected':
         return jsonify({'success': False, 'error': 'Not connected to MQTT broker'}), 503
 
     data = request.json
@@ -281,7 +216,7 @@ def set_brightness():
     brightness = data['brightness']
 
     try:
-        mqtt_client.publish(mqtt_settings['topics']['brightness'], str(brightness))
+        mqtt_client.publish(TOPICS['brightness'], str(brightness))
         return jsonify({'success': True})
     except Exception as e:
         logger.error(f"Error setting brightness: {e}")
@@ -289,7 +224,7 @@ def set_brightness():
 
 @app.route('/api/color', methods=['POST'])
 def set_color():
-    if not mqtt_connected:
+    if connection_status != 'connected':
         return jsonify({'success': False, 'error': 'Not connected to MQTT broker'}), 503
 
     data = request.json
@@ -299,7 +234,7 @@ def set_color():
     color = data['color']
 
     try:
-        mqtt_client.publish(mqtt_settings['topics']['color'], json.dumps(color))
+        mqtt_client.publish(TOPICS['color'], json.dumps(color))
         return jsonify({'success': True})
     except Exception as e:
         logger.error(f"Error setting color: {e}")
@@ -307,12 +242,26 @@ def set_color():
 
 @app.route('/api/clear', methods=['POST'])
 def clear_data():
-    data_store['brightness_history'] = []
-    data_store['ambient_history'] = []
-    data_store['motion_history'] = []
     return jsonify({'success': True})
 
-# Serve React app
+@app.route('/api/light/toggle', methods=['POST'])
+def toggle_light():
+    if connection_status != 'connected':
+        return jsonify({'success': False, 'error': 'Not connected to MQTT broker'}), 503
+
+    try:
+        new_state = 'OFF' if light_state['state'] == 'ON' else 'ON'
+        mqtt_client.publish(TOPICS['command'], new_state)
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error toggling light: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/reconnect', methods=['POST'])
+def reconnect():
+    init_mqtt()
+    return jsonify({'success': True})
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
@@ -321,12 +270,6 @@ def serve(path):
     else:
         return send_from_directory(app.static_folder, 'index.html')
 
-# Initialize MQTT client on startup
-init_mqtt()
-
 if __name__ == '__main__':
-    # Get port from environment variable or use default
-    port = int(os.environ.get('PORT', 5000))
-
-    # Run the app
-    app.run(host='0.0.0.0', port=port, debug=True)
+    init_mqtt()
+    app.run(host='0.0.0.0', port=5000, debug=True)

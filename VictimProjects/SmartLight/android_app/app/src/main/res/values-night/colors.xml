@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark Theme Colors -->
+    <color name="primary">#BB86FC</color>
+    <color name="primary_dark">#3700B3</color>
+    <color name="primary_light">#6200EE</color>
+    <color name="accent">#03DAC6</color>
+    <color name="background">#121212</color>
+    <color name="surface">#1E1E1E</color>
+    <color name="on_primary">#000000</color>
+    <color name="on_background">#FFFFFF</color>
+    <color name="on_surface">#FFFFFF</color>
+    <color name="error">#CF6679</color>
+    <color name="on_error">#000000</color>
+    
+    <!-- Control Colors -->
+    <color name="brightness_control">#FFD700</color>
+    <color name="color_temp_warm">#FFA500</color>
+    <color name="color_temp_cool">#87CEEB</color>
+    
+    <!-- Status Colors -->
+    <color name="status_connected">#81C784</color>
+    <color name="status_disconnected">#E57373</color>
+    <color name="status_connecting">#FFD54F</color>
+</resources> 

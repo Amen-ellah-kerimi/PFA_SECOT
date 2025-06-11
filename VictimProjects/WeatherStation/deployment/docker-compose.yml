@@ -1,59 +1,31 @@
-version: '3'
+version: '3.8'
 
 services:
-  # MQTT Broker
-  mqtt-broker:
+  mqtt:
     image: eclipse-mosquitto:latest
-    container_name: mqtt-broker
     ports:
-      - "1883:1883"   # MQTT
-      - "9001:9001"   # WebSockets
+      - "1883:1883"
+      - "9001:9001"
     volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - mosquitto-data:/mosquitto/data
-      - mosquitto-log:/mosquitto/log
+      - ./mosquitto-no-security.conf:/mosquitto/config/mosquitto.conf
+      - ./acl-no-security:/mosquitto/config/acl
+      - ./passwd:/mosquitto/config/passwd
+      - ./data:/mosquitto/data
+      - ./log:/mosquitto/log
     restart: unless-stopped
-    networks:
-      - weather-network
 
-  # Backend API
-  backend:
+  web:
     build:
-      context: ../web_dashboard/backend
+      context: ../web_dashboard
       dockerfile: Dockerfile
-    container_name: weather-backend
     ports:
-      - "5000:5000"
+      - "8080:80"
     environment:
-      - MQTT_BROKER=mqtt-broker
+      - MQTT_BROKER=mqtt
       - MQTT_PORT=1883
-      - MQTT_USERNAME=
+      - MQTT_WEBSOCKET_PORT=9001
+      - MQTT_USERNAME=web_dashboard
       - MQTT_PASSWORD=
-      - PORT=5000
     depends_on:
-      - mqtt-broker
+      - mqtt
     restart: unless-stopped
-    networks:
-      - weather-network
-
-  # Frontend
-  frontend:
-    build:
-      context: ../web_dashboard/frontend
-      dockerfile: Dockerfile
-    container_name: weather-frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
-    networks:
-      - weather-network
-
-networks:
-  weather-network:
-    driver: bridge
-
-volumes:
-  mosquitto-data:
-  mosquitto-log:

@@ -1,23 +1,27 @@
 package com.weatherstation.app;
 
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.Toolbar;
 import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
-import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
+import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements MqttCallback {
+public class MainActivity extends AppCompatActivity {
     private MqttClient mqttClient;
     private TextView temperatureText;
     private TextView humidityText;
@@ -28,12 +32,17 @@ public class MainActivity extends AppCompatActivity implements MqttCallback {
     private List<Entry> humidityEntries;
     private int dataPointCount = 0;
 
+    private static final String BROKER = "tcp://192.168.1.100:1883"; // Replace with your MQTT broker address
+    private static final String CLIENT_ID = "WeatherStation_" + System.currentTimeMillis();
+    private static final String USERNAME = ""; // Add if needed
+    private static final String PASSWORD = ""; // Add if needed
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Setup toolbar
+        // Set up toolbar
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
@@ -44,38 +53,53 @@ public class MainActivity extends AppCompatActivity implements MqttCallback {
         temperatureChart = findViewById(R.id.temperature_chart);
         humidityChart = findViewById(R.id.humidity_chart);
 
-        // Initialize charts
-        setupCharts();
-
-        // Initialize MQTT client
-        String broker = "tcp://192.168.1.100:1883"; // Replace with your MQTT broker address
-        String clientId = "WeatherStation_" + System.currentTimeMillis();
-        mqttClient = new MqttClient(this, broker, clientId, "", "");
-        mqttClient.setCallback(this);
-        mqttClient.connect();
-    }
-
-    private void setupCharts() {
+        // Initialize data lists
         temperatureEntries = new ArrayList<>();
         humidityEntries = new ArrayList<>();
 
-        // Setup temperature chart
-        LineDataSet temperatureDataSet = new LineDataSet(temperatureEntries, "Temperature (°C)");
-        temperatureDataSet.setColor(getResources().getColor(android.R.color.holo_red_dark));
-        temperatureDataSet.setCircleColor(getResources().getColor(android.R.color.holo_red_dark));
-        temperatureDataSet.setDrawValues(false);
-        temperatureChart.getDescription().setEnabled(false);
-        temperatureChart.setData(new LineData(temperatureDataSet));
-        temperatureChart.invalidate();
+        // Set up charts
+        setupCharts();
 
-        // Setup humidity chart
-        LineDataSet humidityDataSet = new LineDataSet(humidityEntries, "Humidity (%)");
-        humidityDataSet.setColor(getResources().getColor(android.R.color.holo_blue_dark));
-        humidityDataSet.setCircleColor(getResources().getColor(android.R.color.holo_blue_dark));
-        humidityDataSet.setDrawValues(false);
-        humidityChart.getDescription().setEnabled(false);
-        humidityChart.setData(new LineData(humidityDataSet));
-        humidityChart.invalidate();
+        // Initialize MQTT client
+        mqttClient = new MqttClient(this, BROKER, CLIENT_ID, USERNAME, PASSWORD);
+        mqttClient.setCallback(new MqttCallbackExtended() {
+            @Override
+            public void connectComplete(boolean reconnect, String serverURI) {
+                runOnUiThread(() -> {
+                    statusText.setText("Connected");
+                    statusText.setTextColor(getColor(R.color.status_connected));
+                });
+            }
+
+            @Override
+            public void connectionLost(Throwable cause) {
+                runOnUiThread(() -> {
+                    statusText.setText("Disconnected");
+                    statusText.setTextColor(getColor(R.color.status_disconnected));
+                });
+            }
+
+            @Override
+            public void messageArrived(String topic, MqttMessage message) {
+                String payload = new String(message.getPayload());
+                runOnUiThread(() -> updateUI(topic, payload));
+            }
+
+            @Override
+            public void deliveryComplete(IMqttDeliveryToken token) {
+                // Not used
+            }
+        });
+
+        // Connect to MQTT broker
+        try {
+            mqttClient.connect();
+        } catch (MqttException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Failed to connect to MQTT broker: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            statusText.setText("Connection Failed");
+            statusText.setTextColor(getColor(R.color.status_disconnected));
+        }
     }
 
     @Override
@@ -86,79 +110,116 @@ public class MainActivity extends AppCompatActivity implements MqttCallback {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_refresh) {
-            if (mqttClient.isConnected()) {
-                mqttClient.publish(MqttClient.STATUS_TOPIC, "refresh");
-                return true;
-            } else {
-                Toast.makeText(this, "Not connected to MQTT broker", Toast.LENGTH_SHORT).show();
-            }
+        if (item.getItemId() == R.id.action_toggle_theme) {
+            toggleTheme();
+            return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    @Override
-    public void connectionLost(Throwable cause) {
-        runOnUiThread(() -> {
-            statusText.setText("Disconnected");
-            Toast.makeText(this, "Connection lost", Toast.LENGTH_SHORT).show();
-        });
+    private void toggleTheme() {
+        int currentNightMode = AppCompatDelegate.getDefaultNightMode();
+        int newNightMode = (currentNightMode == AppCompatDelegate.MODE_NIGHT_YES) ?
+                AppCompatDelegate.MODE_NIGHT_NO : AppCompatDelegate.MODE_NIGHT_YES;
+        AppCompatDelegate.setDefaultNightMode(newNightMode);
     }
 
-    @Override
-    public void messageArrived(String topic, MqttMessage message) {
-        String payload = message.toString();
-        runOnUiThread(() -> {
-            switch (topic) {
-                case MqttClient.TEMPERATURE_TOPIC:
-                    updateTemperature(Float.parseFloat(payload));
-                    break;
-                case MqttClient.HUMIDITY_TOPIC:
-                    updateHumidity(Float.parseFloat(payload));
-                    break;
-                case MqttClient.STATUS_TOPIC:
-                    statusText.setText("Connected");
-                    break;
-                case MqttClient.DATA_TOPIC:
-                    // Handle combined data if needed
-                    break;
+    private void setupCharts() {
+        // Temperature chart setup
+        temperatureChart.getDescription().setEnabled(false);
+        temperatureChart.setTouchEnabled(true);
+        temperatureChart.setDragEnabled(true);
+        temperatureChart.setScaleEnabled(true);
+        temperatureChart.setPinchZoom(true);
+        temperatureChart.setDrawGridBackground(false);
+        temperatureChart.getAxisRight().setEnabled(false);
+        temperatureChart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
+        temperatureChart.getXAxis().setDrawGridLines(false);
+        temperatureChart.getAxisLeft().setDrawGridLines(true);
+        temperatureChart.getAxisLeft().setGridColor(Color.LTGRAY);
+        temperatureChart.getAxisLeft().setTextColor(getColor(R.color.temperature_chart));
+        temperatureChart.getXAxis().setTextColor(getColor(R.color.temperature_chart));
+        temperatureChart.getLegend().setEnabled(false);
+
+        // Humidity chart setup
+        humidityChart.getDescription().setEnabled(false);
+        humidityChart.setTouchEnabled(true);
+        humidityChart.setDragEnabled(true);
+        humidityChart.setScaleEnabled(true);
+        humidityChart.setPinchZoom(true);
+        humidityChart.setDrawGridBackground(false);
+        humidityChart.getAxisRight().setEnabled(false);
+        humidityChart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
+        humidityChart.getXAxis().setDrawGridLines(false);
+        humidityChart.getAxisLeft().setDrawGridLines(true);
+        humidityChart.getAxisLeft().setGridColor(Color.LTGRAY);
+        humidityChart.getAxisLeft().setTextColor(getColor(R.color.humidity_chart));
+        humidityChart.getXAxis().setTextColor(getColor(R.color.humidity_chart));
+        humidityChart.getLegend().setEnabled(false);
+    }
+
+    private void updateUI(String topic, String payload) {
+        try {
+            if (topic.equals("weather/temperature")) {
+                float temperature = Float.parseFloat(payload);
+                temperatureText.setText(String.format("%.1f°C", temperature));
+                updateTemperatureChart(temperature);
+            } else if (topic.equals("weather/humidity")) {
+                float humidity = Float.parseFloat(payload);
+                humidityText.setText(String.format("%.1f%%", humidity));
+                updateHumidityChart(humidity);
             }
-        });
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
+        }
     }
 
-    private void updateTemperature(float temperature) {
-        temperatureText.setText(String.format("%.1f°C", temperature));
+    private void updateTemperatureChart(float temperature) {
         temperatureEntries.add(new Entry(dataPointCount, temperature));
-        if (temperatureEntries.size() > 50) {
+        if (temperatureEntries.size() > 20) {
             temperatureEntries.remove(0);
         }
-        temperatureChart.getData().notifyDataChanged();
-        temperatureChart.notifyDataSetChanged();
+
+        LineDataSet dataSet = new LineDataSet(temperatureEntries, "Temperature");
+        dataSet.setColor(getColor(R.color.temperature_chart));
+        dataSet.setCircleColor(getColor(R.color.temperature_chart));
+        dataSet.setDrawValues(false);
+        dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+
+        LineData lineData = new LineData(dataSet);
+        temperatureChart.setData(lineData);
         temperatureChart.invalidate();
     }
 
-    private void updateHumidity(float humidity) {
-        humidityText.setText(String.format("%.1f%%", humidity));
+    private void updateHumidityChart(float humidity) {
         humidityEntries.add(new Entry(dataPointCount, humidity));
-        if (humidityEntries.size() > 50) {
+        if (humidityEntries.size() > 20) {
             humidityEntries.remove(0);
         }
-        humidityChart.getData().notifyDataChanged();
-        humidityChart.notifyDataSetChanged();
-        humidityChart.invalidate();
-        dataPointCount++;
-    }
 
-    @Override
-    public void deliveryComplete(IMqttDeliveryToken token) {
-        // Not needed for this implementation
+        LineDataSet dataSet = new LineDataSet(humidityEntries, "Humidity");
+        dataSet.setColor(getColor(R.color.humidity_chart));
+        dataSet.setCircleColor(getColor(R.color.humidity_chart));
+        dataSet.setDrawValues(false);
+        dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+
+        LineData lineData = new LineData(dataSet);
+        humidityChart.setData(lineData);
+        humidityChart.invalidate();
+
+        dataPointCount++;
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         if (mqttClient != null) {
-            mqttClient.disconnect();
+            try {
+                mqttClient.disconnect();
+            } catch (MqttException e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Error disconnecting from MQTT broker: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
         }
     }
 } 

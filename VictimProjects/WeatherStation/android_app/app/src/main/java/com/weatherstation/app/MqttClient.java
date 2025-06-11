@@ -5,8 +5,6 @@ import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 public class MqttClient {
-    private static final String BROKER = "tcp://localhost:1883";
-    private static final String CLIENT_ID = "android_weatherstation_" + System.currentTimeMillis();
     private static final int QOS = 1;
 
     // MQTT Topics
@@ -17,16 +15,20 @@ public class MqttClient {
 
     private org.eclipse.paho.client.mqttv3.MqttClient mqttClient;
     private MqttCallback callback;
-    private String username;
-    private String password;
+    private final String broker;
+    private final String clientId;
+    private final String username;
+    private final String password;
 
-    public MqttClient(Context context, String username, String password) {
+    public MqttClient(Context context, String broker, String clientId, String username, String password) {
+        this.broker = broker;
+        this.clientId = clientId;
         this.username = username;
         this.password = password;
     }
 
     public void connect() throws MqttException {
-        mqttClient = new org.eclipse.paho.client.mqttv3.MqttClient(BROKER, CLIENT_ID, new MemoryPersistence());
+        mqttClient = new org.eclipse.paho.client.mqttv3.MqttClient(broker, clientId, new MemoryPersistence());
         MqttConnectOptions options = new MqttConnectOptions();
         options.setCleanSession(true);
         options.setConnectionTimeout(30);

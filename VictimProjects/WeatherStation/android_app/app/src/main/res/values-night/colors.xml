@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark Theme Colors -->
+    <color name="primary">#90CAF9</color>
+    <color name="primary_dark">#1976D2</color>
+    <color name="primary_light">#BBDEFB</color>
+    <color name="accent">#FF80AB</color>
+    <color name="background">#121212</color>
+    <color name="surface">#1E1E1E</color>
+    <color name="on_primary">#000000</color>
+    <color name="on_background">#FFFFFF</color>
+    <color name="on_surface">#FFFFFF</color>
+    <color name="error">#CF6679</color>
+    <color name="on_error">#000000</color>
+    
+    <!-- Chart Colors -->
+    <color name="temperature_chart">#FF8A80</color>
+    <color name="humidity_chart">#64B5F6</color>
+    
+    <!-- Status Colors -->
+    <color name="status_connected">#81C784</color>
+    <color name="status_disconnected">#E57373</color>
+    <color name="status_connecting">#FFD54F</color>
+</resources> 
